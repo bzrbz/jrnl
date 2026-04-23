@@ -6,7 +6,12 @@
   const SYMBOLS  = { task: '•', note: '—', event: '○' }
   const PREFIXES = { '.': 'task', '-': 'note', 'o': 'event' }
 
-  function toDateStr(d)  { return d.toISOString().slice(0, 10) }
+  function toDateStr(d) {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
   function fromDateStr(s) { return new Date(s + 'T00:00:00') }
   function formatDate(s) {
     return fromDateStr(s).toLocaleDateString('es-ES', {
@@ -21,9 +26,21 @@
     return { type: 'note', text: raw }
   }
 
+  function focusOnMount(node) {
+    node.focus()
+  }
+
   let currentDate = $state(toDateStr(new Date()))
   let entries     = $state([])
   let input       = $state('')
+  let editing     = $state(false)
+
+  // Símbolo dinámico según el prefijo que está escribiendo
+  const inputSymbol = $derived(
+    input.startsWith('. ') ? '•' :
+    input.startsWith('- ') ? '—' :
+    input.startsWith('o ') ? '○' : '·'
+  )
 
   $effect(() => {
     const date = currentDate
@@ -31,6 +48,17 @@
       db.entries.where('date').equals(date).sortBy('createdAt')
     ).subscribe(rows => { entries = rows })
     return () => sub.unsubscribe()
+  })
+
+  // Flechas del teclado para navegar entre días (salvo que haya un input con foco)
+  $effect(() => {
+    function onKeydown(e) {
+      if (document.activeElement?.tagName === 'INPUT') return
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); navigate(-1) }
+      if (e.key === 'ArrowRight') { e.preventDefault(); navigate(1) }
+    }
+    document.addEventListener('keydown', onKeydown)
+    return () => document.removeEventListener('keydown', onKeydown)
   })
 
   async function addEntry() {
@@ -57,6 +85,11 @@
     currentDate = toDateStr(d)
   }
 
+  function onDatePick(e) {
+    if (e.target.value) currentDate = e.target.value
+    editing = false
+  }
+
   const isToday = $derived(currentDate === toDateStr(new Date()))
 </script>
 
@@ -64,8 +97,26 @@
   <header>
     <button onclick={() => navigate(-1)} aria-label="Día anterior">←</button>
     <h1>
-      <time datetime={currentDate}>{formatDate(currentDate)}</time>
-      {#if isToday}<mark>hoy</mark>{/if}
+      {#if editing}
+        <input
+          type="date"
+          use:focusOnMount
+          value={currentDate}
+          onchange={onDatePick}
+          onblur={() => { editing = false }}
+          onkeydown={(e) => e.key === 'Escape' && (editing = false)}
+        />
+      {:else}
+        <time
+          datetime={currentDate}
+          onclick={() => { editing = true }}
+          onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (editing = true)}
+          role="button"
+          tabindex="0"
+          title="Seleccionar fecha"
+        >{formatDate(currentDate)}</time>
+        {#if isToday}<mark>hoy</mark>{/if}
+      {/if}
     </h1>
     <button onclick={() => navigate(1)} aria-label="Día siguiente">→</button>
   </header>
@@ -83,21 +134,18 @@
         <span class="text">{entry.text}</span>
       </li>
     {/each}
+
+    <li class="entry new-entry">
+      <span class="symbol" aria-hidden="true">{inputSymbol}</span>
+      <input
+        type="text"
+        bind:value={input}
+        onkeydown={(e) => e.key === 'Enter' && addEntry()}
+        placeholder=". tarea · - nota · o evento"
+        autocomplete="off"
+        spellcheck="false"
+        aria-label="Nueva entrada"
+      />
+    </li>
   </ul>
-
-  {#if entries.length === 0}
-    <p class="empty">Vacío. Escribe algo abajo.</p>
-  {/if}
-
-  <footer>
-    <input
-      type="text"
-      bind:value={input}
-      onkeydown={(e) => e.key === 'Enter' && addEntry()}
-      placeholder=". tarea · - nota · o evento"
-      autocomplete="off"
-      spellcheck="false"
-    />
-    <button onclick={addEntry} aria-label="Añadir">+</button>
-  </footer>
 </main>
