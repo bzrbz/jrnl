@@ -26,9 +26,14 @@
     return { type: 'note', text: raw }
   }
 
+  function focusOnMount(node) {
+    node.focus()
+  }
+
   let currentDate = $state(toDateStr(new Date()))
   let entries     = $state([])
   let input       = $state('')
+  let editing     = $state(false)
 
   $effect(() => {
     const date = currentDate
@@ -62,6 +67,11 @@
     currentDate = toDateStr(d)
   }
 
+  function onDatePick(e) {
+    if (e.target.value) currentDate = e.target.value
+    editing = false
+  }
+
   const isToday = $derived(currentDate === toDateStr(new Date()))
 </script>
 
@@ -69,8 +79,26 @@
   <header>
     <button onclick={() => navigate(-1)} aria-label="Día anterior">←</button>
     <h1>
-      <time datetime={currentDate}>{formatDate(currentDate)}</time>
-      {#if isToday}<mark>hoy</mark>{/if}
+      {#if editing}
+        <input
+          type="date"
+          use:focusOnMount
+          value={currentDate}
+          onchange={onDatePick}
+          onblur={() => { editing = false }}
+          onkeydown={(e) => e.key === 'Escape' && (editing = false)}
+        />
+      {:else}
+        <time
+          datetime={currentDate}
+          onclick={() => { editing = true }}
+          onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (editing = true)}
+          role="button"
+          tabindex="0"
+          title="Seleccionar fecha"
+        >{formatDate(currentDate)}</time>
+        {#if isToday}<mark>hoy</mark>{/if}
+      {/if}
     </h1>
     <button onclick={() => navigate(1)} aria-label="Día siguiente">→</button>
   </header>
