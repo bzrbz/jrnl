@@ -35,12 +35,30 @@
   let input       = $state('')
   let editing     = $state(false)
 
+  // Símbolo dinámico según el prefijo que está escribiendo
+  const inputSymbol = $derived(
+    input.startsWith('. ') ? '•' :
+    input.startsWith('- ') ? '—' :
+    input.startsWith('o ') ? '○' : '·'
+  )
+
   $effect(() => {
     const date = currentDate
     const sub = liveQuery(() =>
       db.entries.where('date').equals(date).sortBy('createdAt')
     ).subscribe(rows => { entries = rows })
     return () => sub.unsubscribe()
+  })
+
+  // Flechas del teclado para navegar entre días (salvo que haya un input con foco)
+  $effect(() => {
+    function onKeydown(e) {
+      if (document.activeElement?.tagName === 'INPUT') return
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); navigate(-1) }
+      if (e.key === 'ArrowRight') { e.preventDefault(); navigate(1) }
+    }
+    document.addEventListener('keydown', onKeydown)
+    return () => document.removeEventListener('keydown', onKeydown)
   })
 
   async function addEntry() {
@@ -116,21 +134,18 @@
         <span class="text">{entry.text}</span>
       </li>
     {/each}
+
+    <li class="entry new-entry">
+      <span class="symbol" aria-hidden="true">{inputSymbol}</span>
+      <input
+        type="text"
+        bind:value={input}
+        onkeydown={(e) => e.key === 'Enter' && addEntry()}
+        placeholder=". tarea · - nota · o evento"
+        autocomplete="off"
+        spellcheck="false"
+        aria-label="Nueva entrada"
+      />
+    </li>
   </ul>
-
-  {#if entries.length === 0}
-    <p class="empty">Vacío. Escribe algo abajo.</p>
-  {/if}
-
-  <footer>
-    <input
-      type="text"
-      bind:value={input}
-      onkeydown={(e) => e.key === 'Enter' && addEntry()}
-      placeholder=". tarea · - nota · o evento"
-      autocomplete="off"
-      spellcheck="false"
-    />
-    <button onclick={addEntry} aria-label="Añadir">+</button>
-  </footer>
 </main>

@@ -22,7 +22,7 @@ body {
 main {
   max-width: 640px;
   margin: 0 auto;
-  padding: 2.5rem 1.5rem 5rem;
+  padding: 2.5rem 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 2rem;
@@ -63,9 +63,7 @@ h1 time {
   border-bottom: 1px solid transparent;
   transition: border-color 0.15s;
 }
-h1 time:hover {
-  border-bottom-color: var(--muted);
-}
+h1 time:hover { border-bottom-color: var(--muted); }
 
 h1 input[type="date"] {
   font-family: var(--f-serif);
@@ -125,51 +123,26 @@ mark {
 .entry.done .symbol           { color: var(--accent); }
 .entry.done .text             { color: var(--muted); text-decoration: line-through; }
 
-.empty {
-  color: var(--muted);
-  font-size: 0.875rem;
+/* ── Nueva entrada (inline) ────────────────── */
+
+.new-entry .symbol {
+  color: var(--border);
+  user-select: none;
 }
 
-/* ── Footer ──────────────────────────────── */
-
-footer {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: var(--bg);
-  border-top: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding-block: 0.75rem;
-  padding-inline: max(1.5rem, calc((100vw - 640px) / 2 + 1.5rem));
-}
-
-input[type="text"] {
+.new-entry input {
   flex: 1;
   background: none;
   border: none;
-  border-bottom: 1px solid var(--border);
+  outline: none;
   font-family: var(--f-mono);
   font-size: 0.9375rem;
   color: var(--ink);
-  padding: 0.125rem 0;
-  outline: none;
-}
-input[type="text"]::placeholder { color: var(--muted); font-size: 0.8125rem; }
-
-footer > button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 1.25rem;
-  font-family: var(--f-mono);
   padding: 0;
-  line-height: 1;
+  caret-color: var(--accent);
 }
-footer > button:hover { color: var(--ink); }
+.new-entry input::placeholder { color: var(--border); }
+.new-entry input:focus::placeholder { color: var(--muted); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
