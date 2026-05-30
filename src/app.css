@@ -99,11 +99,13 @@ mark {
 
 .entry {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.75rem;
   font-size: 0.9375rem;
   line-height: 1.6;
 }
+
+.entry .text { flex: 1; }
 
 .symbol {
   background: none;
@@ -122,6 +124,53 @@ mark {
 .entry--task .symbol:hover    { color: var(--accent); }
 .entry.done .symbol           { color: var(--accent); }
 .entry.done .text             { color: var(--muted); text-decoration: line-through; }
+
+/* ── Acciones por ítem (hover / touch) ─────── */
+
+.entry-actions {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+
+.entry:hover .entry-actions,
+.entry:focus-within .entry-actions {
+  opacity: 1;
+}
+
+/* En touch (sin hover real) siempre visibles con menor opacidad */
+@media (hover: none) {
+  .entry-actions { opacity: 0.35; }
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--f-mono);
+  font-size: 0.85rem;
+  color: var(--muted);
+  padding: 0 0.15rem;
+  line-height: 1;
+}
+.action-btn:hover            { color: var(--ink); }
+.action-btn--delete:hover    { color: var(--accent); }
+
+.text--edit {
+  flex: 1;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  outline: none;
+  font-family: var(--f-mono);
+  font-size: 0.9375rem;
+  color: var(--ink);
+  padding: 0;
+  caret-color: var(--accent);
+}
 
 /* ── Nueva entrada (inline) ────────────────── */
 

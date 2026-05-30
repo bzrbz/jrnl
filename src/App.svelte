@@ -23,7 +23,7 @@
     if (PREFIXES[raw[0]] && raw[1] === ' ') {
       return { type: PREFIXES[raw[0]], text: raw.slice(2) }
     }
-    return { type: 'note', text: raw }
+    return { type: 'task', text: raw }
   }
 
   function focusOnMount(node) {
@@ -34,12 +34,13 @@
   let entries     = $state([])
   let input       = $state('')
   let editing     = $state(false)
+  let editingId   = $state(null)
+  let editingText = $state('')
 
-  // Símbolo dinámico según el prefijo que está escribiendo
   const inputSymbol = $derived(
     input.startsWith('. ') ? '•' :
     input.startsWith('- ') ? '—' :
-    input.startsWith('o ') ? '○' : '·'
+    input.startsWith('o ') ? '○' : '•'
   )
 
   $effect(() => {
@@ -50,7 +51,6 @@
     return () => sub.unsubscribe()
   })
 
-  // Flechas del teclado para navegar entre días (salvo que haya un input con foco)
   $effect(() => {
     function onKeydown(e) {
       if (document.activeElement?.tagName === 'INPUT') return
@@ -77,6 +77,29 @@
 
   async function toggleDone(id, done) {
     await db.entries.update(id, { done: !done })
+  }
+
+  async function deleteEntry(id) {
+    await db.entries.delete(id)
+  }
+
+  function startEdit(entry) {
+    editingId   = entry.id
+    editingText = entry.text
+  }
+
+  async function commitEdit(entry) {
+    const text = editingText.trim()
+    if (text && text !== entry.text) {
+      await db.entries.update(entry.id, { text })
+    }
+    editingId   = null
+    editingText = ''
+  }
+
+  function cancelEdit() {
+    editingId   = null
+    editingText = ''
   }
 
   function navigate(delta) {
@@ -131,7 +154,28 @@
           aria-pressed={entry.done}
           disabled={entry.type !== 'task'}
         >{SYMBOLS[entry.type]}</button>
-        <span class="text">{entry.text}</span>
+
+        {#if editingId === entry.id}
+          <input
+            class="text text--edit"
+            use:focusOnMount
+            bind:value={editingText}
+            onkeydown={(e) => {
+              if (e.key === 'Enter')  commitEdit(entry)
+              if (e.key === 'Escape') cancelEdit()
+            }}
+            onblur={() => commitEdit(entry)}
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Editar entrada"
+          />
+        {:else}
+          <span class="text">{entry.text}</span>
+          <span class="entry-actions" aria-hidden="true">
+            <button class="action-btn" onclick={() => startEdit(entry)} title="Editar">✎</button>
+            <button class="action-btn action-btn--delete" onclick={() => deleteEntry(entry.id)} title="Borrar">×</button>
+          </span>
+        {/if}
       </li>
     {/each}
 
