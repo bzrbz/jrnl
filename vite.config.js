@@ -22,8 +22,11 @@ export default defineConfig({
       }
     })
   ],
+  resolve: {
+    conditions: ['browser', 'development', 'default']
+  },
   test: {
-    environment: 'node',
-    setupFiles: ['fake-indexeddb/auto']
+    setupFiles: ['fake-indexeddb/auto', './src/lib/__tests__/setup.js'],
+    environment: 'node'
   }
 })
