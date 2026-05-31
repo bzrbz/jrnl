@@ -133,6 +133,67 @@
     })
   }
 
+  // Touch drag-to-reorder: initiated from the handle button
+  function onHandleTouchStart(e, entryId) {
+    e.preventDefault()
+    e.stopPropagation()
+    dragStartId = entryId
+
+    function onMove(ev) {
+      ev.preventDefault()
+      const t = ev.touches[0]
+      const el = document.elementFromPoint(t.clientX, t.clientY)
+      const li = el?.closest('[data-entry-id]')
+      dragOverId = li ? Number(li.dataset.entryId) : null
+    }
+
+    function onEnd() {
+      if (dragStartId !== null && dragOverId !== null) reorder(dragStartId, dragOverId)
+      dragStartId = null
+      dragOverId  = null
+      document.removeEventListener('touchmove', onMove)
+      document.removeEventListener('touchend', onEnd)
+    }
+
+    document.addEventListener('touchmove', onMove, { passive: false })
+    document.addEventListener('touchend', onEnd)
+  }
+
+  // Swipe on entry: right = toggle done, left = delete
+  function onEntryTouchStart(e, _entry) {
+    if (e.target.closest('.drag-handle')) return
+    const t = e.touches[0]
+    e.currentTarget._swipe = { x: t.clientX, y: t.clientY, dx: 0, locked: false }
+  }
+
+  function onEntryTouchMove(e, _entry) {
+    const s = e.currentTarget._swipe
+    if (!s || s.locked) return
+    const dx = e.touches[0].clientX - s.x
+    const dy = e.touches[0].clientY - s.y
+    // If more vertical than horizontal, cancel swipe and let scroll through
+    if (!s.started && Math.abs(dy) > Math.abs(dx)) { s.locked = true; return }
+    s.started = true
+    e.preventDefault()
+    s.dx = dx
+    const clamped = Math.max(-80, Math.min(80, dx))
+    e.currentTarget.style.transition = 'none'
+    e.currentTarget.style.transform  = `translateX(${clamped}px)`
+    e.currentTarget.style.opacity    = String(1 - Math.abs(clamped) / 200)
+  }
+
+  function onEntryTouchEnd(e, entry) {
+    const el = e.currentTarget
+    const s  = el._swipe
+    el._swipe = null
+    el.style.transition = 'transform 0.2s ease, opacity 0.2s ease'
+    el.style.transform  = ''
+    el.style.opacity    = ''
+    if (!s || s.locked || !s.started) return
+    if      (s.dx >  60) toggleDone(entry.id, entry.done)
+    else if (s.dx < -60) deleteEntry(entry.id)
+  }
+
   const isToday = $derived(currentDate === toDateStr(new Date()))
 </script>
 
@@ -171,12 +232,16 @@
         class:done={entry.done}
         class:dragging={dragStartId === entry.id}
         class:drag-over={dragOverId === entry.id && dragStartId !== entry.id}
+        data-entry-id={entry.id}
         draggable="true"
         ondragstart={(e) => { dragStartId = entry.id; e.dataTransfer.effectAllowed = 'move' }}
         ondragover={(e) => { e.preventDefault(); dragOverId = entry.id }}
         ondragleave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) dragOverId = null }}
         ondrop={(e) => { e.preventDefault(); reorder(dragStartId, entry.id); dragStartId = null; dragOverId = null }}
         ondragend={() => { dragStartId = null; dragOverId = null }}
+        ontouchstart={(e) => onEntryTouchStart(e, entry)}
+        ontouchmove={(e) => onEntryTouchMove(e, entry)}
+        ontouchend={(e) => onEntryTouchEnd(e, entry)}
       >
         <button
           class="symbol"
@@ -203,7 +268,12 @@
         {:else}
           <span class="text">{entry.text}</span>
           <span class="entry-actions" aria-hidden="true">
-            <button class="action-btn drag-handle" title="Arrastrar para reordenar" aria-label="Reordenar">⠿</button>
+            <button
+              class="action-btn drag-handle"
+              title="Arrastrar para reordenar"
+              aria-label="Reordenar"
+              ontouchstart={(e) => onHandleTouchStart(e, entry.id)}
+            >⠿</button>
             <button class="action-btn" onclick={() => startEdit(entry)} title="Editar">✎</button>
             <button class="action-btn action-btn--delete" onclick={() => deleteEntry(entry.id)} title="Borrar">×</button>
           </span>

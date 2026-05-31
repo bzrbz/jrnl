@@ -159,7 +159,7 @@ mark {
 .action-btn:hover            { color: var(--ink); }
 .action-btn--delete:hover    { color: var(--accent); }
 
-.drag-handle { cursor: grab; }
+.drag-handle { cursor: grab; touch-action: none; }
 .drag-handle:active { cursor: grabbing; }
 
 .entry.dragging  { opacity: 0.35; }
