@@ -199,3 +199,22 @@ mark {
     animation-duration: 0.01ms !important;
   }
 }
+
+/* ── Dark mode ───────────────────────────── */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:     #1f1c17;
+    --ink:    #ece4d0;
+    --muted:  #a79c84;
+    --accent: #d8635a;
+    --border: #423c30;
+  }
+
+  body {
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(236,228,208,0.035) 0, transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(216,99,90,0.06) 0, transparent 40%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.95  0 0 0 0 0.92  0 0 0 0 0.82  0 0 0 0.045 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+}
