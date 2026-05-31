@@ -36,6 +36,8 @@
   let editing     = $state(false)
   let editingId   = $state(null)
   let editingText = $state('')
+  let dragStartId = $state(null)
+  let dragOverId  = $state(null)
 
   const inputSymbol = $derived(
     input.startsWith('. ') ? '•' :
@@ -46,8 +48,10 @@
   $effect(() => {
     const date = currentDate
     const sub = liveQuery(() =>
-      db.entries.where('date').equals(date).sortBy('createdAt')
-    ).subscribe(rows => { entries = rows })
+      db.entries.where('date').equals(date).toArray()
+    ).subscribe(rows => {
+      entries = rows.sort((a, b) => (a.order ?? a.createdAt) - (b.order ?? b.createdAt))
+    })
     return () => sub.unsubscribe()
   })
 
@@ -70,7 +74,8 @@
       type,
       text,
       done: false,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      order: Date.now()
     })
     input = ''
   }
@@ -113,6 +118,21 @@
     editing = false
   }
 
+  async function reorder(fromId, toId) {
+    if (fromId === toId) return
+    const fromIdx = entries.findIndex(e => e.id === fromId)
+    const toIdx   = entries.findIndex(e => e.id === toId)
+    if (fromIdx === -1 || toIdx === -1) return
+    const reordered = [...entries]
+    const [item] = reordered.splice(fromIdx, 1)
+    reordered.splice(toIdx, 0, item)
+    await db.transaction('rw', db.entries, async () => {
+      for (let i = 0; i < reordered.length; i++) {
+        await db.entries.update(reordered[i].id, { order: i })
+      }
+    })
+  }
+
   const isToday = $derived(currentDate === toDateStr(new Date()))
 </script>
 
@@ -146,7 +166,18 @@
 
   <ul class="entries" role="list">
     {#each entries as entry (entry.id)}
-      <li class="entry entry--{entry.type}" class:done={entry.done}>
+      <li
+        class="entry entry--{entry.type}"
+        class:done={entry.done}
+        class:dragging={dragStartId === entry.id}
+        class:drag-over={dragOverId === entry.id && dragStartId !== entry.id}
+        draggable="true"
+        ondragstart={(e) => { dragStartId = entry.id; e.dataTransfer.effectAllowed = 'move' }}
+        ondragover={(e) => { e.preventDefault(); dragOverId = entry.id }}
+        ondragleave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) dragOverId = null }}
+        ondrop={(e) => { e.preventDefault(); reorder(dragStartId, entry.id); dragStartId = null; dragOverId = null }}
+        ondragend={() => { dragStartId = null; dragOverId = null }}
+      >
         <button
           class="symbol"
           onclick={() => toggleDone(entry.id, entry.done)}
@@ -172,6 +203,7 @@
         {:else}
           <span class="text">{entry.text}</span>
           <span class="entry-actions" aria-hidden="true">
+            <button class="action-btn drag-handle" title="Arrastrar para reordenar" aria-label="Reordenar">⠿</button>
             <button class="action-btn" onclick={() => startEdit(entry)} title="Editar">✎</button>
             <button class="action-btn action-btn--delete" onclick={() => deleteEntry(entry.id)} title="Borrar">×</button>
           </span>
