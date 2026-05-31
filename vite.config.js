@@ -26,7 +26,25 @@ export default defineConfig({
     conditions: ['browser', 'development', 'default']
   },
   test: {
-    setupFiles: ['fake-indexeddb/auto', './src/lib/__tests__/setup.js'],
-    environment: 'node'
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'unit',
+          include: ['src/lib/__tests__/*.test.js'],
+          setupFiles: ['fake-indexeddb/auto', './src/lib/__tests__/setup.js'],
+          environment: 'node',
+        }
+      },
+      {
+        extends: true,
+        test: {
+          name: 'ui',
+          include: ['src/lib/__tests__/ui/**/*.test.js'],
+          setupFiles: ['./src/lib/__tests__/setup.js'],
+          environment: 'happy-dom',
+        }
+      }
+    ]
   }
 })
