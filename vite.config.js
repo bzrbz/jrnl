@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { VitePWA } from 'vite-plugin-pwa'
 
@@ -21,5 +21,30 @@ export default defineConfig({
         ]
       }
     })
-  ]
+  ],
+  resolve: {
+    conditions: ['browser', 'development', 'default']
+  },
+  test: {
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'unit',
+          include: ['src/lib/__tests__/*.test.js'],
+          setupFiles: ['fake-indexeddb/auto', './src/lib/__tests__/setup.js'],
+          environment: 'node',
+        }
+      },
+      {
+        extends: true,
+        test: {
+          name: 'ui',
+          include: ['src/lib/__tests__/ui/**/*.test.js'],
+          setupFiles: ['./src/lib/__tests__/setup.js'],
+          environment: 'happy-dom',
+        }
+      }
+    ]
+  }
 })
