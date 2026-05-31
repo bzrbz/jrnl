@@ -1,29 +1,12 @@
 <script>
   import { liveQuery } from 'dexie'
   import { db } from './lib/db.js'
+  import { toDateStr, fromDateStr, formatDate } from './lib/utils.js'
+  import { addEntry, toggleDone, deleteEntry, reorder, checkMigratable, migrate } from './lib/store.js'
   import Calendar  from './lib/Calendar.svelte'
   import HelpModal from './lib/HelpModal.svelte'
   import EntryList from './lib/EntryList.svelte'
   import './app.css'
-
-  const PREFIXES = { '.': 'task', '-': 'note', 'o': 'event' }
-
-  function toDateStr(d) {
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    return `${y}-${m}-${day}`
-  }
-  function fromDateStr(s) { return new Date(s + 'T00:00:00') }
-  function formatDate(s) {
-    return fromDateStr(s).toLocaleDateString('es-ES', {
-      weekday: 'long', day: 'numeric', month: 'long'
-    })
-  }
-  function parseRaw(raw) {
-    if (PREFIXES[raw[0]] && raw[1] === ' ') return { type: PREFIXES[raw[0]], text: raw.slice(2) }
-    return { type: 'task', text: raw }
-  }
 
   // ── State ──────────────────────────────────
   let currentDate   = $state(toDateStr(new Date()))
@@ -56,14 +39,7 @@
 
   // ── Migratable tasks ───────────────────────
   $effect(() => {
-    const date = currentDate
-    db.entries.filter(e => e.date < date && !e.done && e.type === 'task' && !e.refId)
-      .toArray().then(async past => {
-        if (!past.length) { migrateCount = 0; return }
-        const refs = await db.entries.where('date').equals(date).filter(e => !!e.refId).toArray()
-        const refed = new Set(refs.map(e => e.refId))
-        migrateCount = past.filter(e => !refed.has(e.id)).length
-      })
+    checkMigratable(currentDate).then(n => { migrateCount = n })
   })
 
   // ── Keyboard shortcuts ─────────────────────
@@ -97,25 +73,13 @@
   function closeHelp() { localStorage.setItem('jrnl-onboarded', '1'); showHelp = false }
 
   // ── Entry ops ──────────────────────────────
-  async function addEntry(raw) {
-    const { type, text } = parseRaw(raw)
-    await db.entries.add({
-      date: currentDate, type, text,
-      done: false, createdAt: Date.now(), order: Date.now()
-    })
-  }
+  function handleAdd(raw) { addEntry({ date: currentDate, raw }) }
 
-  async function toggleDone(entry) {
-    const targetId = entry.refId ?? entry.id
-    const isDone   = entry._orig ? entry._orig.done : entry.done
-    await db.entries.update(targetId, { done: !isDone })
-  }
-
-  function deleteEntry(id) {
+  function handleDelete(id) {
     const entry = entries.find(e => e.id === id)
     if (!entry) return
-    if (pendingDelete) { clearTimeout(pendingDelete.timer); db.entries.delete(pendingDelete.entry.id) }
-    const timer = setTimeout(async () => { await db.entries.delete(id); pendingDelete = null }, 4000)
+    if (pendingDelete) { clearTimeout(pendingDelete.timer); deleteEntry(pendingDelete.entry.id) }
+    const timer = setTimeout(async () => { await deleteEntry(id); pendingDelete = null }, 4000)
     pendingDelete = { entry, timer }
   }
 
@@ -131,35 +95,11 @@
     if (text !== currentText) await db.entries.update(targetId, { text })
   }
 
-  async function reorder(fromId, toId) {
-    if (fromId === toId) return
-    const fromIdx = entries.findIndex(e => e.id === fromId)
-    const toIdx   = entries.findIndex(e => e.id === toId)
-    if (fromIdx === -1 || toIdx === -1) return
-    const reordered = [...entries]
-    const [item] = reordered.splice(fromIdx, 1)
-    reordered.splice(toIdx, 0, item)
-    await db.transaction('rw', db.entries, async () => {
-      for (let i = 0; i < reordered.length; i++) {
-        await db.entries.update(reordered[i].id, { order: i })
-      }
-    })
-  }
+  function handleReorder(fromId, toId) { reorder(entries, fromId, toId) }
 
   // ── Migration ──────────────────────────────
-  async function migrate() {
-    const date = currentDate
-    const past = await db.entries
-      .filter(e => e.date < date && !e.done && e.type === 'task' && !e.refId).toArray()
-    const refs  = await db.entries.where('date').equals(date).filter(e => !!e.refId).toArray()
-    const refed = new Set(refs.map(e => e.refId))
-    const now   = Date.now()
-    await db.entries.bulkAdd(
-      past.filter(e => !refed.has(e.id)).map((e, i) => ({
-        date, type: 'ref', text: '', refId: e.id,
-        done: false, createdAt: now + i, order: now + i
-      }))
-    )
+  async function handleMigrate() {
+    await migrate(currentDate)
     migrateCount = 0
   }
 </script>
@@ -186,16 +126,16 @@
   {#if migrateCount > 0}
     <div class="migrate-banner">
       <span>{migrateCount} {migrateCount === 1 ? 'tarea pendiente' : 'tareas pendientes'} de días anteriores</span>
-      <button onclick={migrate}>migrar →</button>
+      <button onclick={handleMigrate}>migrar →</button>
     </div>
   {/if}
 
   <EntryList
     {entries}
     ontoggle={toggleDone}
-    ondelete={deleteEntry}
-    onreorder={reorder}
-    onadd={addEntry}
+    ondelete={handleDelete}
+    onreorder={handleReorder}
+    onadd={handleAdd}
     onedit={editEntry}
   />
 

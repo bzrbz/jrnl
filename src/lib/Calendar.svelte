@@ -1,39 +1,11 @@
 <script>
   import { liveQuery } from 'dexie'
   import { db } from './db.js'
+  import { toDateStr, prevMonth, nextMonth, monthLabel, calDays } from './utils.js'
 
   let { currentDate, onselect } = $props()
 
   const WEEKDAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
-
-  function toDateStr(d) {
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    return `${y}-${m}-${day}`
-  }
-  function prevMonth(ym) {
-    const [y, m] = ym.split('-').map(Number)
-    return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`
-  }
-  function nextMonth(ym) {
-    const [y, m] = ym.split('-').map(Number)
-    return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
-  }
-  function monthLabel(ym) {
-    const [y, m] = ym.split('-').map(Number)
-    return new Date(y, m - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
-  }
-  function calDays(ym) {
-    const [y, m] = ym.split('-').map(Number)
-    const startDow = (new Date(y, m - 1, 1).getDay() + 6) % 7
-    const daysInMonth = new Date(y, m, 0).getDate()
-    const cells = Array(startDow).fill(null)
-    for (let d = 1; d <= daysInMonth; d++) {
-      cells.push(`${ym}-${String(d).padStart(2, '0')}`)
-    }
-    return cells
-  }
 
   let calMonth    = $state(currentDate.slice(0, 7))
   let daysWithData = $state(new Set())
