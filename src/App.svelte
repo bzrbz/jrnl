@@ -36,8 +36,13 @@
   let editing     = $state(false)
   let editingId   = $state(null)
   let editingText = $state('')
-  let dragStartId = $state(null)
-  let dragOverId  = $state(null)
+  let dragStartId   = $state(null)
+  let dragOverId    = $state(null)
+  let pendingDelete = $state(null) // { entry, timer }
+
+  const visibleEntries = $derived(
+    pendingDelete ? entries.filter(e => e.id !== pendingDelete.entry.id) : entries
+  )
 
   const inputSymbol = $derived(
     input.startsWith('. ') ? '•' :
@@ -84,8 +89,25 @@
     await db.entries.update(id, { done: !done })
   }
 
-  async function deleteEntry(id) {
-    await db.entries.delete(id)
+  function deleteEntry(id) {
+    const entry = entries.find(e => e.id === id)
+    if (!entry) return
+    // Flush any previous pending delete immediately
+    if (pendingDelete) {
+      clearTimeout(pendingDelete.timer)
+      db.entries.delete(pendingDelete.entry.id)
+    }
+    const timer = setTimeout(async () => {
+      await db.entries.delete(id)
+      pendingDelete = null
+    }, 4000)
+    pendingDelete = { entry, timer }
+  }
+
+  function undoDelete() {
+    if (!pendingDelete) return
+    clearTimeout(pendingDelete.timer)
+    pendingDelete = null
   }
 
   function startEdit(entry) {
@@ -226,7 +248,7 @@
   </header>
 
   <ul class="entries" role="list">
-    {#each entries as entry (entry.id)}
+    {#each visibleEntries as entry (entry.id)}
       <li
         class="entry entry--{entry.type}"
         class:done={entry.done}
@@ -294,4 +316,10 @@
       />
     </li>
   </ul>
+  {#if pendingDelete}
+    <div class="toast" role="status">
+      <span>entrada borrada</span>
+      <button onclick={undoDelete}>deshacer</button>
+    </div>
+  {/if}
 </main>
